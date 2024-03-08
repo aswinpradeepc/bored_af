@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Annotation</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #imageContainer {
+            position: relative;
+        }
+
+        #canvas {
+            border: 1px solid #000;
+        }
+
+        #textOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-size: 24px;
+            pointer-events: none;
+        }
+
+        #userInput, #downloadButton, #rateSlider {
+            margin-top: 10px;
+            padding: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="imageInput" accept="image/png" />
+    <div id="imageContainer">
+        <canvas id="canvas"></canvas>
+        <div id="textOverlay"></div>
+    </div>
+    <input type="text" id="userInput" placeholder="Enter Emoji/Letter">
+    <button id="downloadButton" onclick="downloadImage()">Download</button>
+    <label for="rateSlider">Spraying Rate:</label>
+    <input type="range" id="rateSlider" min="1" max="100" value="1" />
+    
+    <script>
+        let canvas, ctx, textOverlay, userInput, painting = false;
+        let sprayingRate = 1;
+        let positions = [];
+
+        document.getElementById('imageInput').addEventListener('change', handleImageUpload);
+        document.getElementById('imageContainer').addEventListener('mousedown', startPainting);
+        document.getElementById('imageContainer').addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            stopPainting();
+        });
+        document.getElementById('downloadButton').addEventListener('click', downloadImage);
+        document.getElementById('rateSlider').addEventListener('input', updateSprayingRate);
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file && file.type === 'image/png') {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const image = new Image();
+                    image.onload = function () {
+                        canvas = document.getElementById('canvas');
+                        ctx = canvas.getContext('2d');
+                        textOverlay = document.getElementById('textOverlay');
+                        userInput = document.getElementById('userInput');
+
+                        canvas.width = image.width;
+                        canvas.height = image.height;
+                        ctx.drawImage(image, 0, 0);
+                    };
+                    image.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                alert('Please upload a valid PNG image.');
+            }
+        }
+
+        function startPainting() {
+            painting = true;
+        }
+
+        function stopPainting() {
+            painting = false;
+        }
+
+        function downloadImage() {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCtx.fillStyle = 'rgba(0, 0, 0, 0)';
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+            positions.forEach(({ x, y, value }) => {
+                tempCtx.fillStyle = 'black';
+                tempCtx.font = '24px Arial';
+                tempCtx.fillText(value, x, y);
+            });
+
+            const downloadLink = document.createElement('a');
+            downloadLink.href = tempCanvas.toDataURL('image/png').replace("image/png", "image/octet-stream");
+            downloadLink.download = 'annotated_image.png';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+
+        function updateSprayingRate() {
+            sprayingRate = parseInt(document.getElementById('rateSlider').value);
+        }
+
+        document.getElementById('imageContainer').addEventListener('mousemove', function(event) {
+            if (painting) {
+                const x = event.offsetX;
+                const y = event.offsetY;
+                const value = userInput.value;
+                
+                if (value) {
+                    positions.push({ x, y, value });
+                    
+                    ctx.fillStyle = 'black';
+                    ctx.font = '24px Arial';
+                    ctx.fillText(value, x, y);
+                    
+                    const textMetrics = ctx.measureText(value);
+                    textOverlay.style.top = y + 'px';
+                    textOverlay.style.left = x + 'px';
+                    textOverlay.innerText = value;
+                    textOverlay.style.width = textMetrics.width + 'px';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
